@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ТРЕНИРОВКИ — простой трекер</title>
+  <style>
+    :root{
+      --bg:#f3f4f6; --text:#111827; --card:#fff; --muted:#6b7280;
+      --accent:#10b981; --card-border:#e5e7eb;
+    }
+    [data-theme="dark"]{
+      --bg:#0b1220; --text:#e6eef8; --card:#0f1724; --muted:#9aa6b2;
+      --accent:#34d399; --card-border:#1f2937;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;padding:18px}
+    .wrap{max-width:900px;margin:0 auto;gap:16px;display:flex;flex-direction:column;min-height:100vh}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between}
+    h1{margin:0;font-size:28px}
+    p.sub{margin:4px 0 0;color:var(--muted);font-size:13px}
+    button, .btn{cursor:pointer;border:0;padding:10px 14px;border-radius:12px;font-weight:600}
+    .btn{background:var(--accent);color:white}
+    .small{padding:8px 10px;border-radius:10px;background:transparent;border:1px solid var(--card-border);color:var(--muted)}
+    .card{background:var(--card);border:1px solid var(--card-border);padding:14px;border-radius:14px;box-shadow:0 6px 18px rgba(2,6,23,0.04)}
+    .category{margin-top:10px}
+    .cat-head{display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer}
+    .cat-title{font-weight:700}
+    .icon{color:var(--muted)}
+    .items{overflow:hidden;transition:all .28s ease}
+    .item{display:flex;gap:10px;align-items:center;padding:8px;border-radius:10px;margin-top:8px;background:linear-gradient(180deg, rgba(0,0,0,0.00), rgba(0,0,0,0.00));border:1px solid var(--card-border)}
+    label{display:flex;align-items:center;gap:10px;flex:1;cursor:pointer}
+    input[type="checkbox"]{width:18px;height:18px}
+    .muted{color:var(--muted)}
+    .calendar-list{display:flex;flex-direction:column;gap:8px}
+    .cal-item{background:#dcfce7;color:#065f46;padding:8px;border-radius:10px;font-weight:600}
+    footer{margin-top:auto;text-align:center;color:var(--muted);font-size:12px;padding:18px 0}
+    .controls{display:flex;gap:10px;flex-wrap:wrap}
+    @media (max-width:560px){body{padding:12px} h1{font-size:22px}}
+  </style>
+</head>
+<body>
+  <div class="wrap" id="app">
+    <header>
+      <div>
+        <h1>ТРЕНИРОВКИ</h1>
+        <p class="sub">история + галочки + тёмная тема</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="themeBtn" class="small">Тёмная тема</button>
+      </div>
+    </header>
+
+    <div class="card">
+      <div style="display:flex;gap:10px;align-items:center;justify-content:space-between">
+        <div>
+          <strong>Отметить день</strong>
+          <div class="muted" style="font-size:12px;margin-top:4px">Добавляет сегодняшнюю дату в список выполненных</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button id="markDay" class="btn">✔ Отметить день выполненным</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="calendarCard">
+      <h3 style="margin:0 0 8px 0">История выполненных дней</h3>
+      <div id="calendar" class="calendar-list muted">Пока пусто…</div>
+    </div>
+
+    <div id="workoutsContainer"></div>
+
+    <footer>© Твой тренировочный трекер</footer>
+  </div>
+
+  <script>
+    // Данные тренировок
+    const WORKOUTS = {
+      "Грудь + Плечи + Трицепс": [
+        "Жим гантелей лёжа — 4×10–15",
+        "Разведение гантелей лёжа — 3×12–15",
+        "Отжимания с резинкой — 3×максимум",
+        "Жим гантелей стоя — 4×8–12",
+        "Разведения в стороны — 3×12–15",
+        "Фронтальные подъёмы — 3×10–12",
+        "Разгибания резинки из-за головы — 3×12–15",
+        "Узкие отжимания — 2×максимум"
+      ],
+      "Спина + Бицепс + Трапеции": [
+        "Тяга гантели к поясу — 4×10–12",
+        "Тяга гантелей в наклоне — 3×10",
+        "Гиперэкстензии / наклоны — 3×15",
+        "Подъём гантелей стоя — 4×8–12",
+        "Молотки — 3×10–12",
+        "Шраги с гантелями — 4×12–15"
+      ],
+      "Ноги + Ягодицы + Пресс": [
+        "Присед с гирей 25 кг — 4×12–15",
+        "Выпады с гантелями — 3×10–12",
+        "Болгарские приседы — 3×10",
+        "Ягодичный мост с гирей — 4×12–15",
+        "Подъёмы на носки — 4×20",
+        "Подъёмы ног — 3×15",
+        "Планка — 1 минута"
+      ]
+    };
+
+    // localStorage keys
+    const KEY_CHECKS = 'workout_checks_v1';
+    const KEY_CAL = 'workout_calendar_v1';
+    const KEY_THEME = 'workout_theme_v1';
+    const container = document.getElementById('workoutsContainer');
+    const calendarEl = document.getElementById('calendar');
+    const markDayBtn = document.getElementById('markDay');
+    const themeBtn = document.getElementById('themeBtn');
+
+    // Load state
+    let checks = JSON.parse(localStorage.getItem(KEY_CHECKS) || '{}');
+    let calendar = JSON.parse(localStorage.getItem(KEY_CAL) || '[]');
+    let theme = localStorage.getItem(KEY_THEME) || 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    themeBtn.textContent = theme === 'dark' ? 'Светлая тема' : 'Тёмная тема';
+
+    // Helper to persist
+    function saveChecks(){ localStorage.setItem(KEY_CHECKS, JSON.stringify(checks)); }
+    function saveCalendar(){ localStorage.setItem(KEY_CAL, JSON.stringify(calendar)); }
+    function saveTheme(){ localStorage.setItem(KEY_THEME, document.documentElement.getAttribute('data-theme')); }
+
+    // Render calendar
+    function renderCalendar(){
+      if(calendar.length === 0){
+        calendarEl.classList.add('muted');
+        calendarEl.textContent = 'Пока пусто…';
+        return;
+      }
+      calendarEl.classList.remove('muted');
+      calendarEl.innerHTML = '';
+      calendar.slice().reverse().forEach(day => {
+        const div = document.createElement('div');
+        div.className = 'cal-item';
+        div.textContent = '✔ ' + day;
+        calendarEl.appendChild(div);
+      });
+    }
+
+    // Create category cards
+    function createCategory(name, items){
+      const wrap = document.createElement('div');
+      wrap.className = 'card category';
+      const head = document.createElement('div');
+      head.className = 'cat-head';
+      const title = document.createElement('div');
+      title.innerHTML = '<div class="cat-title">'+name+'</div><div class="muted" style="font-size:12px;margin-top:6px">Клик чтобы открыть/закрыть</div>';
+      const icon = document.createElement('div');
+      icon.className = 'icon';
+      icon.textContent = '▼';
+
+      head.appendChild(title);
+      head.appendChild(icon);
+      wrap.appendChild(head);
+
+      const itemsWrap = document.createElement('div');
+      itemsWrap.className = 'items';
+      itemsWrap.style.height = '0px';
+      itemsWrap.style.opacity = 0;
+      itemsWrap.style.padding = '0 0';
+
+      items.forEach(text => {
+        const item = document.createElement('div');
+        item.className = 'item';
+        const label = document.createElement('label');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !!checks[text];
+        cb.addEventListener('change', (e)=>{
+          e.stopPropagation();
+          checks[text] = cb.checked;
+          saveChecks();
+          // visual subtle
+          label.style.opacity = cb.checked ? 0.6 : 1;
+        });
+        const span = document.createElement('span');
+        span.textContent = text;
+        label.appendChild(cb);
+        label.appendChild(span);
+        item.appendChild(label);
+        itemsWrap.appendChild(item);
+      });
+
+      head.addEventListener('click', ()=>{
+        const opened = itemsWrap.style.height !== '0px';
+        if(opened){
+          // close
+          itemsWrap.style.height = '0px';
+          itemsWrap.style.opacity = 0;
+          icon.textContent = '▼';
+        } else {
+          // open: calc full height
+          itemsWrap.style.opacity = 1;
+          itemsWrap.style.height = itemsWrap.scrollHeight + 'px';
+          icon.textContent = '▲';
+        }
+      });
+
+      // set default closed
+      wrap.appendChild(itemsWrap);
+      return wrap;
+    }
+
+    // Render all categories
+    function renderAll(){
+      container.innerHTML = '';
+      for(const [k,v] of Object.entries(WORKOUTS)){
+        container.appendChild(createCategory(k,v));
+      }
+      renderCalendar();
+    }
+
+    // mark today
+    markDayBtn.addEventListener('click', ()=>{
+      const today = new Date().toLocaleDateString();
+      if(!calendar.includes(today)){
+        calendar.push(today);
+        saveCalendar();
+        renderCalendar();
+        // tiny feedback
+        markDayBtn.textContent = 'Добавлено ✔';
+        setTimeout(()=> markDayBtn.textContent = '✔ Отметить день выполненным', 900);
+      } else {
+        markDayBtn.textContent = 'Уже отмечено';
+        setTimeout(()=> markDayBtn.textContent = '✔ Отметить день выполненным', 900);
+      }
+    });
+
+    // theme toggle
+    themeBtn.addEventListener('click', ()=>{
+      const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', cur);
+      themeBtn.textContent = cur === 'dark' ? 'Светлая тема' : 'Тёмная тема';
+      saveTheme();
+    });
+
+    // initial render
+    renderAll();
+
+    // restore check visual states (in case)
+    (function restoreVisuals(){
+      // After render, find checkboxes and set label opacity
+      document.querySelectorAll('.item').forEach(it=>{
+        const cb = it.querySelector('input[type="checkbox"]');
+        if(cb) it.querySelector('label').style.opacity = cb.checked ? 0.6 : 1;
+      });
+    })();
+
+    // nice: auto-open last expanded category? no — keep simple
+  </script>
+</body>
+</html>
